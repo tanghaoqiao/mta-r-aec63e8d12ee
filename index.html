@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>MTA Morning Report</title>
+<style>
+  :root {
+    --mt-terracotta: #c8553d;
+    --mt-sage: #6b8e63;
+    --mt-cream: #faf6ef;
+    --mt-dark: #2d2a26;
+    --mt-warm-grey: #6b6660;
+    --mt-light-grey: #e8e2d8;
+    --mt-good: #5a8a52;
+    --mt-warn: #d4a73d;
+    --mt-bad: #c8553d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--mt-cream);
+    color: var(--mt-dark);
+    margin: 0;
+    padding: 16px;
+    line-height: 1.45;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--mt-terracotta);
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    color: var(--mt-terracotta);
+    letter-spacing: -0.3px;
+    line-height: 1.1;
+  }
+  h1 .subtitle {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--mt-warm-grey);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-top: 4px;
+  }
+  .refresh-info {
+    text-align: right;
+    font-size: 11px;
+    color: var(--mt-warm-grey);
+  }
+  .refresh-info a {
+    color: var(--mt-sage);
+    text-decoration: none;
+    border-bottom: 1px dotted;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: white;
+    border-left: 4px solid var(--mt-sage);
+    padding: 10px 12px;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .kpi.headline { border-left-color: var(--mt-terracotta); }
+  .kpi .label { font-size: 11px; color: var(--mt-warm-grey); text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi .value { font-size: 22px; font-weight: 600; color: var(--mt-dark); margin-top: 2px; }
+  .kpi .sub { font-size: 11px; color: var(--mt-warm-grey); margin-top: 2px; }
+  .progress {
+    background: var(--mt-light-grey);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-bar {
+    background: var(--mt-sage);
+    height: 100%;
+    transition: width 0.4s ease;
+  }
+  .progress-bar.warn { background: var(--mt-warn); }
+  .progress-bar.bad  { background: var(--mt-bad); }
+  section {
+    background: white;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  h2 {
+    font-size: 14px;
+    color: var(--mt-terracotta);
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--mt-light-grey);
+    vertical-align: top;
+  }
+  th { font-weight: 600; color: var(--mt-warm-grey); font-size: 11px; text-transform: uppercase; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .channel-header {
+    background: var(--mt-cream);
+    font-weight: 600;
+    color: var(--mt-terracotta);
+    padding: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+  .channel-header td { padding: 8px; border-bottom: 2px solid var(--mt-terracotta); }
+  .ship-good { color: var(--mt-good); }
+  .ship-bad { color: var(--mt-bad); font-weight: 600; }
+  .ship-mild { color: var(--mt-warn); }
+  .item-list {
+    font-size: 11px;
+    color: var(--mt-warm-grey);
+    margin-top: 2px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill.good { background: rgba(90,138,82,0.15); color: var(--mt-good); }
+  .pill.warn { background: rgba(212,167,61,0.18); color: var(--mt-warn); }
+  .pill.bad  { background: rgba(200,85,61,0.15); color: var(--mt-bad); }
+  .alert-row { background: rgba(200,85,61,0.06); }
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--mt-warm-grey);
+    margin-top: 20px;
+    padding: 8px;
+  }
+  .footer a { color: var(--mt-sage); text-decoration: none; }
+  .empty { color: var(--mt-warm-grey); font-style: italic; padding: 8px 0; }
+  .toolbar {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: var(--mt-sage);
+    color: white;
+    border: 0;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .toolbar button:hover { background: #5a7d54; }
+  .toolbar button.secondary { background: white; color: var(--mt-dark); border: 1px solid var(--mt-light-grey); }
+  .toolbar .url-input {
+    flex: 1;
+    min-width: 260px;
+    padding: 6px 10px;
+    border: 1px solid var(--mt-light-grey);
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: monospace;
+  }
+  .toolbar .status {
+    font-size: 11px;
+    color: var(--mt-warm-grey);
+  }
+  details { font-size: 12px; color: var(--mt-warm-grey); margin-top: 8px; }
+  summary { cursor: pointer; }
+  code { font-size: 11px; }
+  @media (max-width: 600px) {
+    body { padding: 8px; }
+    h1 { font-size: 18px; }
+    .kpi .value { font-size: 18px; }
+    th, td { padding: 4px 6px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1 id="report-date">
+    Loading...
+    <span class="subtitle">MTA Morning Report · Mango Trees Australia</span>
+  </h1>
+  <div class="refresh-info">
+    Generated <span id="meta-gen"></span><br>
+    <a href="https://github.com/tanghaoqiao/mta-morning-report" target="_blank">repo</a> ·
+    <a href="https://github.com/tanghaoqiao/mta-morning-report/actions" target="_blank">runs</a> ·
+    <a href="https://gist.github.com/tanghaoqiao/67b45850c242d34f680c0f974f7f7e9a" target="_blank">gist</a>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button onclick="loadLive()">Refresh from gist</button>
+  <input id="liveUrl" class="url-input"
+         value="https://gist.githubusercontent.com/tanghaoqiao/67b45850c242d34f680c0f974f7f7e9a/raw/morning_report.json" />
+  <button class="secondary" onclick="loadEmbedded()">Snapshot fallback</button>
+  <span class="status" id="status"></span>
+</div>
+
+<div class="kpi-grid" id="kpis"></div>
+
+<section>
+  <h2>Orders — sorted by channel <span class="pill warn" id="orders-pill"></span></h2>
+  <table id="orders-table"><thead>
+    <tr>
+      <th>Order</th>
+      <th>State / PC</th>
+      <th class="num">Rev</th>
+      <th class="num">COGS</th>
+      <th class="num">Ship cost</th>
+      <th class="num">Ship margin</th>
+      <th class="num">Fee</th>
+      <th>Carrier · Zone · kg</th>
+      <th class="num">Net</th>
+    </tr>
+  </thead><tbody></tbody></table>
+</section>
+
+<section>
+  <h2>Channel rollup</h2>
+  <table id="channel-table"><thead>
+    <tr><th>Channel</th><th class="num">Orders</th><th class="num">Revenue</th><th class="num">Est GP$</th><th class="num">GP%</th></tr>
+  </thead><tbody></tbody></table>
+</section>
+
+<section>
+  <h2>OOS hero alerts <span class="pill bad" id="oos-pill"></span></h2>
+  <table id="oos-table"><thead>
+    <tr><th>SKU</th><th>Name</th><th class="num">Stock @ Seven Hills</th></tr>
+  </thead><tbody></tbody></table>
+</section>
+
+<details>
+  <summary>About this report</summary>
+  <p>Pipeline: <code>tanghaoqiao/mta-morning-report</code> · GitHub Actions cron <code>0 22 * * *</code> UTC (= 8am AEST winter)</p>
+  <p>Shipping costs: <strong>DFE</strong> (May 2026 Regime B rate card + fuel levy history) · <strong>AusPost AU</strong> (full 9-zone rate card + 12% fuel surcharge, dead-weight billing until 3D55 lodgement) · <strong>AusPost NZ</strong> (Intl Standard rate card, GST-free).</p>
+  <p>Margin leak flagged when est shipping cost > charged + $5.</p>
+</details>
+
+<div class="footer">
+  v1.3 · ship margin (charged − cost) · date header · gist-backed live mode
+</div>
+
+</div>
+
+<script>
+const GIST_URL = "https://gist.githubusercontent.com/tanghaoqiao/67b45850c242d34f680c0f974f7f7e9a/raw/morning_report.json";
+
+// Embedded fallback — last known good snapshot (auto-replaced if live fetch works)
+const EMBEDDED = {
+  "generated_at_syd": "2026-05-26T18:36:44.818091+10:00",
+  "report_for_date": "2026-05-25",
+  "summary": {"orders":16,"revenue":2495.75,"cogs":1092.92,"shipping_cost_est":176.06,"shipping_charged":250.03,"gross_profit_est":1226.77,"channel_fees_est":139.43,"net_before_opex":1087.34,"daily_opex":320,"net_profit_est":767.34,"aov":156.0,"vs_target_pct":83.2,"daily_target":3000},
+  "by_channel": [{"channel":"Website","orders":11,"rev":2103.82,"gp":1051.92},{"channel":"Kogan NZ","orders":2,"rev":540.24,"gp":316.44},{"channel":"BigW","orders":2,"rev":141.81,"gp":50.0},{"channel":"Amazon AU","orders":1,"rev":79.0,"gp":53.5},{"channel":"EverydayMarket","orders":1,"rev":33.27,"gp":20.0},{"channel":"Trade Me","orders":1,"rev":28.04,"gp":16.25},{"channel":"eBay","orders":1,"rev":27.98,"gp":15.41}],
+  "orders": [],
+  "oos_heroes": [{"sku":"RTF-B51-BURN","name":"\"Book Stack\" Bedside Table/Corner End Table","stock":0},{"sku":"MS-TPB-1-MOD4ft","name":"MORGAN 4Ft Platinum Rugby Tackle Bag","stock":-2}],
+  "meta": {"pipeline_version":"1.2"}
+};
+
+const fmt = {
+  money: n => '$' + (n || 0).toLocaleString('en-AU', {minimumFractionDigits:2, maximumFractionDigits:2}),
+  int: n => (n || 0).toLocaleString('en-AU'),
+  pct: n => (n || 0).toFixed(1) + '%',
+  date: s => { try { return new Date(s).toLocaleString('en-AU', {dateStyle:'medium', timeStyle:'short'}); } catch { return s; }},
+  kg: n => (n || 0).toFixed(2) + 'kg',
+};
+
+function render(d) {
+  const s = d.summary;
+  // Big header: "Sunday, 25 May 2026"
+  try {
+    const dt = new Date(d.report_for_date + 'T00:00:00');
+    const dateStr = dt.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    document.getElementById('report-date').innerHTML =
+      dateStr + '<span class="subtitle">MTA Morning Report · Mango Trees Australia</span>';
+  } catch (e) {
+    document.getElementById('report-date').textContent = d.report_for_date;
+  }
+  document.getElementById('meta-gen').textContent = fmt.date(d.generated_at_syd);
+
+  // KPIs
+  const targetClass = s.vs_target_pct >= 95 ? 'good' : (s.vs_target_pct >= 70 ? 'warn' : 'bad');
+  const targetBar = Math.min(s.vs_target_pct, 130);
+  const netClass = (s.net_profit_est || 0) > 0 ? 'good' : 'bad';
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi headline">
+      <div class="label">Revenue</div>
+      <div class="value">${fmt.money(s.revenue)}</div>
+      <div class="sub">vs ${fmt.money(s.daily_target)}/day target</div>
+      <div class="progress"><div class="progress-bar ${targetClass}" style="width:${targetBar}%"></div></div>
+      <div class="sub" style="margin-top:4px;"><strong>${fmt.pct(s.vs_target_pct)}</strong> of target</div>
+    </div>
+    <div class="kpi headline" style="border-left-color: var(--mt-${netClass});">
+      <div class="label">Net profit (est)</div>
+      <div class="value" style="color: var(--mt-${netClass});">${fmt.money(s.net_profit_est)}</div>
+      <div class="sub">after $${(s.daily_opex||0).toFixed(0)} opex</div>
+      <div class="sub" style="margin-top:4px;"><strong>${(s.net_profit_est/s.revenue*100).toFixed(1)}%</strong> net margin</div>
+    </div>
+    <div class="kpi"><div class="label">Orders</div><div class="value">${s.orders}</div><div class="sub">AOV ${fmt.money(s.aov)}</div></div>
+    <div class="kpi"><div class="label">Gross profit</div><div class="value">${fmt.money(s.gross_profit_est)}</div><div class="sub">${(s.gross_profit_est/s.revenue*100).toFixed(1)}% GM</div></div>
+    <div class="kpi"><div class="label">Channel fees</div><div class="value">${fmt.money(s.channel_fees_est)}</div><div class="sub">${(s.channel_fees_est/s.revenue*100).toFixed(1)}% of rev</div></div>
+    <div class="kpi"><div class="label">Shipping</div><div class="value">${fmt.money(s.shipping_cost_est)}</div><div class="sub">vs charged ${fmt.money(s.shipping_charged)}</div></div>
+  `;
+
+  // Channel rollup
+  document.querySelector('#channel-table tbody').innerHTML = (d.by_channel || []).map(c => {
+    const gpPct = c.rev > 0 ? (c.gp / c.rev * 100).toFixed(1) : 0;
+    return `<tr>
+      <td><strong>${c.channel}</strong></td>
+      <td class="num">${c.orders}</td>
+      <td class="num">${fmt.money(c.rev)}</td>
+      <td class="num">${fmt.money(c.gp)}</td>
+      <td class="num">${gpPct}%</td>
+    </tr>`;
+  }).join('');
+
+  // Orders sorted by channel
+  const orders = d.orders || [];
+  document.getElementById('orders-pill').textContent = orders.length + ' orders';
+  const tbody = document.querySelector('#orders-table tbody');
+  if (orders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No order detail in this snapshot. Run #4+ has per-order detail; click "Refresh from gist" to load.</td></tr>';
+  } else {
+    let html = '';
+    let lastChannel = null;
+    let channelRev = 0, channelCnt = 0;
+    for (const o of orders) {
+      if (o.channel !== lastChannel) {
+        lastChannel = o.channel;
+        html += `<tr class="channel-header"><td colspan="9">${o.channel}</td></tr>`;
+      }
+      // Ship margin = charged - cost. +ve = we made money on freight; -ve = we lost.
+      // Back-compat with old JSON: derive from ship_gap if ship_margin missing.
+      const margin = (o.ship_margin !== undefined) ? o.ship_margin : -(o.ship_gap || 0);
+      let marginClass = 'ship-good';   // green for profit
+      if (margin < -5) marginClass = 'ship-bad';     // red: big loss
+      else if (margin < 0) marginClass = 'ship-mild'; // amber: small loss
+      const items = (o.items || []).map(it => `<code>${it.sku}</code>${it.qty>1 ? ' ×'+it.qty : ''}`).join(' · ');
+      const netClass = (o.net_before_opex||0) > 0 ? 'ship-good' : 'ship-bad';
+      html += `<tr>
+        <td><code>${o.order_id}</code><div class="item-list">${items}</div></td>
+        <td>${o.state || ''} ${o.postcode || ''}</td>
+        <td class="num">${fmt.money(o.rev)}</td>
+        <td class="num">${fmt.money(o.cogs)}</td>
+        <td class="num">${fmt.money(o.ship_cost_est)}<div class="item-list">chg ${fmt.money(o.ship_charged)}</div></td>
+        <td class="num ${marginClass}">${margin >= 0 ? '+' : '-'}$${Math.abs(margin).toFixed(2)}</td>
+        <td class="num">${fmt.money(o.channel_fee||0)}<div class="item-list">${(o.channel_fee_pct||0).toFixed(1)}%</div></td>
+        <td><span class="pill ${o.carrier==='DFE'?'warn':'good'}">${o.carrier}</span><div class="item-list">${o.zone || ''} · ${fmt.kg(o.ship_kg)}</div></td>
+        <td class="num ${netClass}"><strong>${fmt.money(o.net_before_opex||o.gp)}</strong></td>
+      </tr>`;
+    }
+    tbody.innerHTML = html;
+  }
+
+  // OOS heroes
+  document.getElementById('oos-pill').textContent = (d.oos_heroes || []).length + ' out of stock';
+  const oosTbody = document.querySelector('#oos-table tbody');
+  if ((d.oos_heroes || []).length === 0) {
+    oosTbody.innerHTML = '<tr><td colspan="3" class="empty">All hero SKUs in stock at Seven Hills.</td></tr>';
+  } else {
+    oosTbody.innerHTML = d.oos_heroes.map(o =>
+      `<tr class="alert-row">
+        <td><code>${o.sku}</code></td>
+        <td>${o.name}</td>
+        <td class="num"><strong>${o.stock}</strong></td>
+      </tr>`
+    ).join('');
+  }
+}
+
+function setStatus(msg, isErr) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.style.color = isErr ? 'var(--mt-bad)' : 'var(--mt-good)';
+}
+
+function loadEmbedded() {
+  render(EMBEDDED);
+  setStatus('Using embedded snapshot (' + EMBEDDED.report_for_date + ')');
+}
+
+async function loadLive() {
+  const url = document.getElementById('liveUrl').value.trim() || GIST_URL;
+  setStatus('Fetching…');
+  try {
+    const resp = await fetch(url + '?t=' + Date.now(), {cache: 'no-store'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    render(data);
+    setStatus('Live · ' + data.report_for_date);
+    localStorage.setItem('mta_live_url', url);
+  } catch (e) {
+    setStatus('Live fetch failed: ' + e.message + ' — using snapshot', true);
+    render(EMBEDDED);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('mta_live_url');
+  if (saved) document.getElementById('liveUrl').value = saved;
+  loadLive();   // Default: try gist
+});
+</script>
+</body>
+</html>
