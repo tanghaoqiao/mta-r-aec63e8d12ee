@@ -236,7 +236,7 @@
       <th class="num">COGS</th>
       <th class="num">Ship cost</th>
       <th class="num">Ship margin</th>
-      <th class="num">Fee</th>
+      <th class="num">Mktg fee</th>
       <th>Carrier · Zone · kg</th>
       <th class="num">Net</th>
     </tr>
@@ -325,7 +325,7 @@ function render(d) {
     </div>
     <div class="kpi"><div class="label">Orders</div><div class="value">${s.orders}</div><div class="sub">AOV ${fmt.money(s.aov)}</div></div>
     <div class="kpi"><div class="label">Gross profit</div><div class="value">${fmt.money(s.gross_profit_est)}</div><div class="sub">${(s.gross_profit_est/s.revenue*100).toFixed(1)}% GM</div></div>
-    <div class="kpi"><div class="label">Channel fees</div><div class="value">${fmt.money(s.channel_fees_est)}</div><div class="sub">${(s.channel_fees_est/s.revenue*100).toFixed(1)}% of rev</div></div>
+    <div class="kpi"><div class="label">Marketing fees</div><div class="value">${fmt.money(s.marketing_fees_est ?? s.channel_fees_est)}</div><div class="sub">${s.marketing_fees_breakdown ? `ch ${fmt.money(s.marketing_fees_breakdown.channel_fees)} + ads ${fmt.money(s.marketing_fees_breakdown.google_ads)}` : `${(s.channel_fees_est/s.revenue*100).toFixed(1)}% of rev`}</div></div>
     <div class="kpi"><div class="label">Shipping</div><div class="value">${fmt.money(s.shipping_cost_est)}</div><div class="sub">vs charged ${fmt.money(s.shipping_charged)}</div></div>
   `;
 
@@ -366,7 +366,7 @@ function render(d) {
       const netClass = (o.net_before_opex||0) > 0 ? 'ship-good' : 'ship-bad';
       html += `<tr>
         <td><code>${o.order_id}</code><div class="item-list">${items}</div></td>
-        <td>${o.state || ''} ${o.postcode || ''}</td>
+        <td>${(o.state || o.postcode) ? `${o.state || ''} ${o.postcode || ''}`.trim() : '—'}</td>
         <td class="num">${fmt.money(o.rev)}</td>
         <td class="num">${fmt.money(o.cogs)}</td>
         <td class="num">${fmt.money(o.ship_cost_est)}<div class="item-list">chg ${fmt.money(o.ship_charged)}</div></td>
