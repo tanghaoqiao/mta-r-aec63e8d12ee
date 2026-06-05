@@ -365,9 +365,10 @@ function render(d) {
       else if (margin < 0) marginClass = 'ship-mild'; // amber: small loss
       const items = (o.items || []).map(it => `<code>${it.sku}</code>${it.qty>1 ? ' ×'+it.qty : ''}`).join(' · ');
       const netClass = (o.net_before_opex||0) > 0 ? 'ship-good' : 'ship-bad';
-      const gpVal = o.gp_pre_ship ?? (o.rev - o.cogs);
-      const gpPctLine = o.rev > 0 ? (gpVal / o.rev * 100).toFixed(1)+'%' : '';
-      const gpClass = gpVal < 0 ? 'ship-bad' : (gpVal/Math.max(o.rev,0.01) < 0.15 ? 'ship-mild' : 'ship-good');
+      // GP = Rev - COGS - ShipCost - ChannelFee - GoogleAdsShare (Thomas def 2026-06-05)
+      const gpVal = o.gp ?? (o.rev - o.cogs - (o.ship_cost_est||0) - (o.channel_fee||0) - (o.google_ads_share||0));
+      const gpPctLine = o.rev > 0 ? (gpVal / o.rev * 100).toFixed(1)+'%' + (o.google_ads_share ? ` · ads ${fmt.money(o.google_ads_share)}` : '') : '';
+      const gpClass = gpVal < 0 ? 'ship-bad' : (gpVal/Math.max(o.rev,0.01) < 0.10 ? 'ship-mild' : 'ship-good');
       html += `<tr>
         <td><code>${o.order_id}</code><div class="item-list">${items}</div></td>
         <td>${(o.state || o.postcode) ? `${o.state || ''} ${o.postcode || ''}`.trim() : '—'}</td>
@@ -415,9 +416,4 @@ async function loadLive() {
   const url = document.getElementById('liveUrl').value.trim() || GIST_URL;
   setStatus('Fetching…');
   try {
-    const resp = await fetch(url + '?t=' + Date.now(), {cache: 'no-store'});
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    render(data);
-    setStatus('Live · ' + data.report_for_date);
-    localStorage.setItem('mta
+    const resp = await fetch(url + '?t=' + D
