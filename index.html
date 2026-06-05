@@ -364,8 +364,11 @@ function render(d) {
       else if (margin < 0) marginClass = 'ship-mild'; // amber: small loss
       const items = (o.items || []).map(it => `<code>${it.sku}</code>${it.qty>1 ? ' ×'+it.qty : ''}`).join(' · ');
       const netClass = (o.net_before_opex||0) > 0 ? 'ship-good' : 'ship-bad';
-      // Net margin sub-line: show ads share if applicable (Website orders)
-      const netSubLine = (o.google_ads_share ? `ads ${fmt.money(o.google_ads_share)}` : `${(((o.net_before_opex||o.gp)/Math.max(o.rev,0.01))*100).toFixed(1)}%`);
+      // Marketing fee = channel fee + Google Ads share (Website only carries ads)
+      const mktgFee = (o.channel_fee||0) + (o.google_ads_share||0);
+      const mktgPct = o.rev > 0 ? (mktgFee / o.rev * 100).toFixed(1) : '0.0';
+      const netVal = o.net_before_opex || o.gp || 0;
+      const netPct = o.rev > 0 ? (netVal / o.rev * 100).toFixed(1) : '0.0';
       html += `<tr>
         <td><code>${o.order_id}</code><div class="item-list">${items}</div></td>
         <td>${(o.state || o.postcode) ? `${o.state || ''} ${o.postcode || ''}`.trim() : '—'}</td>
@@ -374,8 +377,8 @@ function render(d) {
         <td><span class="pill ${o.carrier==='DFE'?'warn':'good'}">${o.carrier}</span><div class="item-list">${o.zone || ''} · ${fmt.kg(o.ship_kg)}</div></td>
         <td class="num">${fmt.money(o.ship_cost_est)}<div class="item-list">chg ${fmt.money(o.ship_charged)}</div></td>
         <td class="num ${marginClass}">${margin >= 0 ? '+' : '-'}$${Math.abs(margin).toFixed(2)}</td>
-        <td class="num">${fmt.money(o.channel_fee||0)}<div class="item-list">${(o.channel_fee_pct||0).toFixed(1)}%</div></td>
-        <td class="num ${netClass}"><strong>${fmt.money(o.net_before_opex||o.gp)}</strong><div class="item-list">${netSubLine}</div></td>
+        <td class="num">${fmt.money(mktgFee)}<div class="item-list">${mktgPct}%</div></td>
+        <td class="num ${netClass}"><strong>${fmt.money(netVal)}</strong><div class="item-list">${netPct}%</div></td>
       </tr>`;
     }
     tbody.innerHTML = html;
@@ -428,4 +431,4 @@ window.addEventListener('DOMContentLoaded', loadLive);
 </script>
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                  
