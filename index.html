@@ -234,6 +234,7 @@
       <th>State / PC</th>
       <th class="num">Rev</th>
       <th class="num">COGS</th>
+      <th class="num">GP</th>
       <th class="num">Ship cost</th>
       <th class="num">Ship margin</th>
       <th class="num">Mktg fee</th>
@@ -346,7 +347,7 @@ function render(d) {
   document.getElementById('orders-pill').textContent = orders.length + ' orders';
   const tbody = document.querySelector('#orders-table tbody');
   if (orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">No order detail in this snapshot. Run #4+ has per-order detail; click "Refresh from gist" to load.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No order detail in this snapshot. Run #4+ has per-order detail; click "Refresh from gist" to load.</td></tr>';
   } else {
     let html = '';
     let lastChannel = null;
@@ -354,7 +355,7 @@ function render(d) {
     for (const o of orders) {
       if (o.channel !== lastChannel) {
         lastChannel = o.channel;
-        html += `<tr class="channel-header"><td colspan="9">${o.channel}</td></tr>`;
+        html += `<tr class="channel-header"><td colspan="10">${o.channel}</td></tr>`;
       }
       // Ship margin = charged - cost. +ve = we made money on freight; -ve = we lost.
       // Back-compat with old JSON: derive from ship_gap if ship_margin missing.
@@ -364,11 +365,15 @@ function render(d) {
       else if (margin < 0) marginClass = 'ship-mild'; // amber: small loss
       const items = (o.items || []).map(it => `<code>${it.sku}</code>${it.qty>1 ? ' ×'+it.qty : ''}`).join(' · ');
       const netClass = (o.net_before_opex||0) > 0 ? 'ship-good' : 'ship-bad';
+      const gpVal = o.gp_pre_ship ?? (o.rev - o.cogs);
+      const gpPctLine = o.rev > 0 ? (gpVal / o.rev * 100).toFixed(1)+'%' : '';
+      const gpClass = gpVal < 0 ? 'ship-bad' : (gpVal/Math.max(o.rev,0.01) < 0.15 ? 'ship-mild' : 'ship-good');
       html += `<tr>
         <td><code>${o.order_id}</code><div class="item-list">${items}</div></td>
         <td>${(o.state || o.postcode) ? `${o.state || ''} ${o.postcode || ''}`.trim() : '—'}</td>
         <td class="num">${fmt.money(o.rev)}</td>
         <td class="num">${fmt.money(o.cogs)}</td>
+        <td class="num ${gpClass}">${fmt.money(gpVal)}<div class="item-list">${gpPctLine}</div></td>
         <td class="num">${fmt.money(o.ship_cost_est)}<div class="item-list">chg ${fmt.money(o.ship_charged)}</div></td>
         <td class="num ${marginClass}">${margin >= 0 ? '+' : '-'}$${Math.abs(margin).toFixed(2)}</td>
         <td class="num">${fmt.money(o.channel_fee||0)}<div class="item-list">${(o.channel_fee_pct||0).toFixed(1)}%</div></td>
@@ -415,18 +420,4 @@ async function loadLive() {
     const data = await resp.json();
     render(data);
     setStatus('Live · ' + data.report_for_date);
-    localStorage.setItem('mta_live_url', url);
-  } catch (e) {
-    setStatus('Live fetch failed: ' + e.message + ' — using snapshot', true);
-    render(EMBEDDED);
-  }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('mta_live_url');
-  if (saved) document.getElementById('liveUrl').value = saved;
-  loadLive();   // Default: try gist
-});
-</script>
-</body>
-</html>
+    localStorage.setItem('mta
