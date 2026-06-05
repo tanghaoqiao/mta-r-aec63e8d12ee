@@ -416,4 +416,19 @@ async function loadLive() {
   const url = document.getElementById('liveUrl').value.trim() || GIST_URL;
   setStatus('Fetching…');
   try {
-    const resp = await fetch(url + '?t=' + D
+    const resp = await fetch(url + '?t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    render(data);
+    setStatus('Live data loaded · ' + (data.report_for_date || ''));
+  } catch (e) {
+    setStatus('Failed to fetch live: ' + e.message + ' — showing snapshot fallback', true);
+    render(EMBEDDED);
+  }
+}
+
+// Auto-load on page open
+window.addEventListener('DOMContentLoaded', loadLive);
+</script>
+</body>
+</html>
