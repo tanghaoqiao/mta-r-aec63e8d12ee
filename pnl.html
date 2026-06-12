@@ -225,9 +225,11 @@ function render(from, to, preset) {
     row('Net profit (est)', net, 'total');
 
   // ---- Top 5 product groups (by SKU prefix)
+  const normGroup = g => (g || 'OTHER').startsWith('TTP') ? 'TTP' : g; // TTP family collapse
   const groups = {};
   days.forEach(d => (d.by_sku || []).forEach(s => {
-    const g = groups[s.group] || (groups[s.group] = {qty: 0, rev: 0, gp: 0});
+    const k = normGroup(s.group);
+    const g = groups[k] || (groups[k] = {qty: 0, rev: 0, gp: 0});
     g.qty += s.qty; g.rev += s.rev; g.gp += s.gp;
   }));
   const gRows = Object.entries(groups).sort((a, b) => b[1].rev - a[1].rev);
