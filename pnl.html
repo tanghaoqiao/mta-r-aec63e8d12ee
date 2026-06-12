@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTA P&amp;L Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1c2733; --muted: #6b7a8a;
+    --green: #1e8e5a; --red: #c0392b; --accent: #c0392b; --line: #e4e8ec;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--ink); padding: 20px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  h1 { font-size: 22px; }
+  h1 .accent { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+              background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+              padding: 10px 12px; margin-bottom: 16px; }
+  .controls button { border: 1px solid var(--line); background: #fff; color: var(--ink);
+                     border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  .controls button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .controls input[type=date] { border: 1px solid var(--line); border-radius: 8px;
+                               padding: 6px 8px; font-size: 13px; color: var(--ink); }
+  .controls .apply { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls .spacer { flex: 1; }
+  .controls .note { color: var(--muted); font-size: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+           gap: 10px; margin-bottom: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .tile .label { font-size: 12px; color: var(--muted); text-transform: uppercase;
+                 letter-spacing: .04em; margin-bottom: 6px; }
+  .tile .value { font-size: 22px; font-weight: 700; }
+  .tile .delta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px;
+       border-bottom: 1px solid var(--line); font-size: 12px; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .chartbox { position: relative; height: 260px; }
+  .pnl-table td.indent { padding-left: 24px; color: var(--muted); }
+  .pnl-table tr.total td { font-weight: 700; border-top: 2px solid var(--ink); }
+  #status { color: var(--muted); font-size: 13px; padding: 30px; text-align: center; }
+  .pill { display: inline-block; background: #f0f2f4; border-radius: 999px;
+          padding: 2px 8px; font-size: 11px; color: var(--muted); margin-left: 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mango Trees <span class="accent">P&amp;L Report</span></h1>
+    <span class="sub" id="meta"></span>
+  </header>
+
+  <div class="controls" id="controls" style="display:none">
+    <button data-preset="7">Last 7 days</button>
+    <button data-preset="14">Last 14 days</button>
+    <button data-preset="30">Last 30 days</button>
+    <button data-preset="all">All data</button>
+    <input type="date" id="dFrom"> <span class="sub">to</span> <input type="date" id="dTo">
+    <button class="apply" id="applyBtn">Apply</button>
+    <span class="spacer"></span>
+    <button id="refreshBtn" title="Re-fetch from gist">&#8635; Refresh</button>
+  </div>
+
+  <div id="status">Loading P&amp;L data&hellip;</div>
+  <div id="report" style="display:none">
+    <div class="tiles" id="tiles"></div>
+
+    <div class="card">
+      <h2>Daily trend <span class="pill" id="trendRange"></span></h2>
+      <div class="chartbox"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>P&amp;L statement</h2>
+        <table class="pnl-table" id="pnlTable"></table>
+      </div>
+      <div>
+        <div class="card">
+          <h2>Top 5 product groups <span class="pill">by SKU prefix</span></h2>
+          <table id="groupTable"></table>
+        </div>
+        <div class="card">
+          <h2>Channels</h2>
+          <table id="channelTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GIST_RAW = 'https://gist.githubusercontent.com/tanghaoqiao/67b45850c242d34f680c0f974f7f7e9a/raw/pnl_report.json';
+const RUN_URL  = 'https://github.com/tanghaoqiao/mta-morning-report/actions/workflows/pnl-report.yml';
+
+let DATA = null;
+let chart = null;
+
+const $ = id => document.getElementById(id);
+const aud = n => (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-AU',
+                 {minimumFractionDigits: 0, maximumFractionDigits: 0});
+const aud2 = n => (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-AU',
+                  {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const pct = n => n.toLocaleString('en-AU', {maximumFractionDigits: 1}) + '%';
+
+async function load() {
+  $('status').style.display = 'block';
+  $('report').style.display = 'none';
+  try {
+    const r = await fetch(GIST_RAW + '?t=' + Date.now(), {cache: 'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    DATA = await r.json();
+  } catch (e) {
+    $('status').innerHTML = 'Could not load pnl_report.json from the gist (' + e.message +
+      ').<br>Run the <a href="' + RUN_URL + '">P&amp;L Range Report workflow</a> first, then refresh.';
+    return;
+  }
+  initControls();
+  // Default view: last 7 days within the data window
+  selectPreset(7);
+  $('status').style.display = 'none';
+  $('report').style.display = 'block';
+}
+
+function dataDates() { return DATA.days.map(d => d.date); }
+
+function initControls() {
+  const dates = dataDates();
+  const min = dates[0], max = dates[dates.length - 1];
+  $('dFrom').min = min; $('dFrom').max = max;
+  $('dTo').min = min;   $('dTo').max = max;
+  $('dFrom').value = min; $('dTo').value = max;
+  $('controls').style.display = 'flex';
+  $('meta').textContent = 'Data: ' + min + ' → ' + max +
+    ' · generated ' + (DATA.generated_at_syd || '').slice(0, 16).replace('T', ' ') + ' AEST';
+  document.querySelectorAll('[data-preset]').forEach(b =>
+    b.addEventListener('click', () => selectPreset(b.dataset.preset)));
+  $('applyBtn').addEventListener('click', () => {
+    if ($('dFrom').value && $('dTo').value) render($('dFrom').value, $('dTo').value, null);
+  });
+  $('refreshBtn').addEventListener('click', load);
+}
+
+function selectPreset(p) {
+  const dates = dataDates();
+  const max = dates[dates.length - 1];
+  let from = dates[0];
+  if (p !== 'all') {
+    const n = parseInt(p, 10);
+    from = dates[Math.max(0, dates.length - n)];
+  }
+  $('dFrom').value = from; $('dTo').value = max;
+  render(from, max, String(p));
+}
+
+function render(from, to, preset) {
+  if (from > to) [from, to] = [to, from];
+  document.querySelectorAll('[data-preset]').forEach(b =>
+    b.classList.toggle('active', b.dataset.preset === preset));
+
+  const days = DATA.days.filter(d => d.date >= from && d.date <= to);
+  if (!days.length) return;
+  const n = days.length;
+  const C = DATA.constants || {daily_google_ads: 120, daily_opex: 200, daily_target: 3000};
+
+  // ---- Aggregate (GP = Rev - COGS - Ship - ChannelFees - Ads; Net = GP - Opex)
+  const sum = k => days.reduce((a, d) => a + (d[k] || 0), 0);
+  const rev = sum('revenue'), cogs = sum('cogs'), ship = sum('ship_cost'),
+        shipChg = sum('ship_charged'), fees = sum('channel_fees'),
+        ads = days.reduce((a, d) => a + (d.ads ?? C.daily_google_ads), 0),
+        opex = days.reduce((a, d) => a + (d.opex ?? C.daily_opex), 0),
+        orders = sum('orders');
+  const gp = rev - cogs - ship - fees - ads;
+  const net = gp - opex;
+  const aov = orders ? rev / orders : 0;
+  const target = C.daily_target * n;
+  const dailyNet = days.map(d => d.revenue - d.cogs - d.ship_cost -
+                                 d.channel_fees - (d.ads ?? C.daily_google_ads) -
+                                 (d.opex ?? C.daily_opex));
+
+  $('trendRange').textContent = from + ' → ' + to + ' · ' + n + ' days';
+
+  // ---- KPI tiles
+  const tiles = [
+    ['Net profit', aud(net), (net >= 0 ? 'pos' : 'neg'),
+     aud(net / n) + '/day avg'],
+    ['Revenue', aud(rev), '', pct(rev / target * 100) + ' of ' + aud(target) + ' target'],
+    ['Gross profit', aud(gp), (gp >= 0 ? 'pos' : 'neg'),
+     rev ? pct(gp / rev * 100) + ' of revenue' : ''],
+    ['Orders', orders.toLocaleString('en-AU'), '', 'AOV ' + aud2(aov)],
+    ['Marketing', aud(fees + ads), '', 'fees ' + aud(fees) + ' + ads ' + aud(ads)],
+    ['Shipping', aud(ship), (shipChg - ship >= 0 ? 'pos' : 'neg'),
+     'charged ' + aud(shipChg) + ' (' + (shipChg - ship >= 0 ? '+' : '') + aud(shipChg - ship) + ')'],
+  ];
+  $('tiles').innerHTML = tiles.map(t =>
+    '<div class="tile"><div class="label">' + t[0] + '</div>' +
+    '<div class="value ' + t[2] + '">' + t[1] + '</div>' +
+    '<div class="delta">' + t[3] + '</div></div>').join('');
+
+  // ---- P&L statement table
+  const row = (label, val, cls, indent) =>
+    '<tr class="' + (cls || '') + '"><td' + (indent ? ' class="indent"' : '') + '>' + label +
+    '</td><td class="num">' + aud2(val) + '</td></tr>';
+  $('pnlTable').innerHTML =
+    row('Revenue (' + orders + ' orders)', rev) +
+    row('COGS', -cogs, '', true) +
+    row('Shipping cost (est)', -ship, '', true) +
+    row('Channel fees', -fees, '', true) +
+    row('Google Ads (' + aud(C.daily_google_ads) + '/day × ' + n + ')', -ads, '', true) +
+    row('Gross profit', gp) +
+    row('Opex (' + aud(C.daily_opex) + '/day × ' + n + ')', -opex, '', true) +
+    row('Net profit (est)', net, 'total');
+
+  // ---- Top 5 product groups (by SKU prefix)
+  const groups = {};
+  days.forEach(d => (d.by_sku || []).forEach(s => {
+    const g = groups[s.group] || (groups[s.group] = {qty: 0, rev: 0, gp: 0});
+    g.qty += s.qty; g.rev += s.rev; g.gp += s.gp;
+  }));
+  const gRows = Object.entries(groups).sort((a, b) => b[1].rev - a[1].rev);
+  const top5 = gRows.slice(0, 5);
+  const lineRev = gRows.reduce((a, g) => a + g[1].rev, 0) || 1;
+  $('groupTable').innerHTML =
+    '<tr><th>Group</th><th class="num">Qty</th><th class="num">Revenue</th>' +
+    '<th class="num">Product GP</th><th class="num">Share</th></tr>' +
+    top5.map(([g, v]) =>
+      '<tr><td><strong>' + g + '</strong></td><td class="num">' + v.qty +
+      '</td><td class="num">' + aud(v.rev) + '</td><td class="num ' +
+      (v.gp >= 0 ? 'pos' : 'neg') + '">' + aud(v.gp) + '</td><td class="num">' +
+      pct(v.rev / lineRev * 100) + '</td></tr>').join('') +
+    (gRows.length > 5 ?
+      '<tr><td class="indent">Other (' + (gRows.length - 5) + ' groups)</td>' +
+      '<td class="num"></td><td class="num">' +
+      aud(gRows.slice(5).reduce((a, g) => a + g[1].rev, 0)) +
+      '</td><td class="num">' + aud(gRows.slice(5).reduce((a, g) => a + g[1].gp, 0)) +
+      '</td><td class="num"></td></tr>' : '');
+
+  // ---- Channel rollup
+  const channels = {};
+  days.forEach(d => (d.by_channel || []).forEach(c => {
+    const x = channels[c.channel] || (channels[c.channel] = {orders: 0, rev: 0, gp: 0});
+    x.orders += c.orders; x.rev += c.rev; x.gp += c.gp;
+  }));
+  $('channelTable').innerHTML =
+    '<tr><th>Channel</th><th class="num">Orders</th><th class="num">Revenue</th>' +
+    '<th class="num">GP</th><th class="num">GP%</th></tr>' +
+    Object.entries(channels).sort((a, b) => b[1].rev - a[1].rev).map(([c, v]) =>
+      '<tr><td>' + c + '</td><td class="num">' + v.orders + '</td><td class="num">' +
+      aud(v.rev) + '</td><td class="num ' + (v.gp >= 0 ? 'pos' : 'neg') + '">' +
+      aud(v.gp) + '</td><td class="num">' +
+      (v.rev ? pct(v.gp / v.rev * 100) : '—') + '</td></tr>').join('');
+
+  // ---- Trend chart
+  if (chart) chart.destroy();
+  chart = new Chart($('trendChart'), {
+    data: {
+      labels: days.map(d => d.date.slice(5)),
+      datasets: [
+        { type: 'bar', label: 'Revenue', data: days.map(d => d.revenue),
+          backgroundColor: 'rgba(28,39,51,0.25)', borderRadius: 3 },
+        { type: 'line', label: 'Net profit', data: dailyNet,
+          borderColor: '#c0392b', backgroundColor: '#c0392b',
+          tension: 0.25, pointRadius: 2.5 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: {mode: 'index', intersect: false},
+      plugins: { legend: {labels: {boxWidth: 12, font: {size: 11}}},
+        tooltip: { callbacks: { label: ctx =>
+          ctx.dataset.label + ': ' + aud2(ctx.parsed.y) } } },
+      scales: {
+        y: { ticks: { callback: v => aud(v), font: {size: 11} }, grid: {color: '#eef1f4'} },
+        x: { ticks: {font: {size: 10}, maxRotation: 60}, grid: {display: false} },
+      },
+    },
+  });
+}
+
+load();
+</script>
+</body>
+</html>
